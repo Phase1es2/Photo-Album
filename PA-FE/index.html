@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Photo Gallery</title>
+
+    <!-- Fonts & Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400&family=Playfair+Display:wght@400;600&display=swap" rel="stylesheet">
+
+    <!-- CSS (now in css/) -->
+    <link rel="stylesheet" href="css/styles.css">
+
+    <!-- API Gateway Dependencies (unchanged) -->
+    <script type="text/javascript" src="lib/axios/dist/axios.standalone.js"></script>
+    <script type="text/javascript" src="lib/crypto-js/rollups/hmac-sha256.js"></script>
+    <script type="text/javascript" src="lib/crypto-js/rollups/sha256.js"></script>
+    <script type="text/javascript" src="lib/crypto-js/components/hmac.js"></script>
+    <script type="text/javascript" src="lib/crypto-js/components/enc-base64.js"></script>
+    <script type="text/javascript" src="lib/url-template/url-template.js"></script>
+    <script type="text/javascript" src="lib/apiGatewayCore/sigV4Client.js"></script>
+    <script type="text/javascript" src="lib/apiGatewayCore/apiGatewayClient.js"></script>
+    <script type="text/javascript" src="lib/apiGatewayCore/simpleHttpClient.js"></script>
+    <script type="text/javascript" src="lib/apiGatewayCore/utils.js"></script>
+
+    <!-- apigClient moved to js folder -->
+    <script type="text/javascript" src="js/apigClient.js"></script>
+</head>
+
+<body>
+
+    <h1>THE ARCHIVE</h1>
+
+    <div class="main-container">
+        <!-- Upload Panel -->
+        <div class="panel">
+            <h2><i class="fas fa-camera-retro"></i> Contribute to Archive</h2>
+
+            <input type="file" id="file-input" accept="image/png, image/jpeg" style="display: none;">
+
+            <div class="upload-area" id="drop-zone">
+                <div id="upload-placeholder">
+                    <i class="fas fa-plus upload-icon"></i>
+                    <p>Drag & Drop to curate or <strong>select file</strong></p>
+                </div>
+                <img id="file-preview" alt="Preview">
+            </div>
+
+            <button class="action-btn" id="upload-btn" onclick="uploadPhoto()">PUBLISH PHOTO</button>
+        </div>
+
+        <!-- Search Panel -->
+        <div class="panel">
+            <h2><i class="fas fa-search"></i> Explore Collection</h2>
+
+            <div class="search-box">
+                <input type="text" class="search-input" id="search-query" placeholder="Type concept, subject, or mood...">
+                <button class="search-btn" onclick="searchPhotos()">
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+
+            <div class="results-grid" id="results-area"></div>
+        </div>
+    </div>
+
+    <div id="toast">Notification</div>
+
+    <!-- Main JS moved to js/ -->
+    <script src="js/script.js"></script>
+
+</body>
+</html>
