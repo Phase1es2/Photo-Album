@@ -2,15 +2,32 @@ import json
 import boto3
 import urllib.parse
 from datetime import datetime
+from opensearchpy import OpenSearch, RequestsHttpConnection, AWSV4SignerAuth
 
 rekognition = boto3.client('rekognition')
 s3 = boto3.client('s3')
+
+# Elastic Search
+region = 'us-east-1'
+host = 'search-photos-tdaddyd45xyfcfqmv4lm24uc3u.aos.us-east-1.on.aws' 
+session = boto3.Session()
+credentials = session.get_credentials()
+
+auth = AWSV4SignerAuth(credentials, region)
+
+opensearch_client = OpenSearch(
+    hosts = [{'host': host, 'port': 443}],
+    http_auth = auth,
+    use_ssl = True,
+    verify_certs = True,
+    connection_class = RequestsHttpConnection,
+)
 
 def get_labels(bucket, key):
     """Return ONLY the label names from Rekognition."""
     response = rekognition.detect_labels(
         Image={'S3Object': {'Bucket': bucket, 'Name': key}},
-        MaxLabels=10,
+        MaxLabels=15,
         MinConfidence=70
     )
 
@@ -39,28 +56,41 @@ def get_s3_metadata_labels(bucket, key):
 
     print("Custom Labels A1:", A1)
     return A1
+    
+
+def save_to_opensearch(document):
+    try:
+        response = opensearch_client.index(
+            index='photos',
+            body=document,
+            id=document['objectKey']
+        )
+        print("Data indexed successfully:", response)
+        return True
+    except Exception as e:
+        print(f"Error indexing data: {e}")
+        return False
 
 
-def elastic_search_json(bucket, key):
-    # A1 = metadata labels
-    A1 = get_s3_metadata_labels(bucket, key)
+def process_image(bucket, key):
+    meta_labels = get_s3_metadata_labels(bucket, key)
 
-    # A2 = rekognition labels (list)
-    A2 = get_labels(bucket, key)
+    rek_labels = get_labels(bucket, key)
 
     # Combine both → remove duplicates
-    final_labels = list(set(A1 + A2))
+    labels = list(set(meta_labels + rek_labels))
 
-    print("Final Labels:", final_labels)
+    print("Final Labels:", labels)
 
-    document = {
+    doc = {
         "objectKey": key,
         "bucket": bucket,
         "createdTimestamp": datetime.utcnow().isoformat(),
-        "labels": final_labels
+        "labels": labels
     }
-
-    return document
+    # Save to OpenSearch
+    save_to_opensearch(doc)
+    return doc
 
 
 def lambda_handler(event, context):
@@ -74,7 +104,7 @@ def lambda_handler(event, context):
 
     print(f"Processing image: s3://{bucket}/{key}")
 
-    doc = elastic_search_json(bucket, key)
+    doc = process_image(bucket, key)
 
     print("Document to store:", json.dumps(doc, indent=2))
 
