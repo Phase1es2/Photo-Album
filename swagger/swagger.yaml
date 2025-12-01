@@ -1,0 +1,110 @@
+swagger: '2.0'
+info:
+  title: AI Photo Search
+  description: 'AI Photo Search application, built during the Cloud and Big Data course at Columbia University.'
+  version: 1.0.0
+schemes:
+  - https
+basePath: /v1
+produces:
+  - application/json
+paths:
+  /search:
+    get:
+      summary: photo search method
+      description: |
+        This API takes in a search query as a query parameter and returns zero or more photos that match the search query.
+      operationId: searchPhotos
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+          description: the string to be searched
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: search results
+          schema:
+            $ref: '#/definitions/SearchResponse'
+        '403':
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /get-upload-url:
+    post:
+      summary: Get S3 Pre-signed URL
+      description: |
+        Takes in the filename, filetype, and custom labels, and returns a pre-signed S3 URL for direct upload.
+      operationId: uploadUrl
+      parameters:
+        - in: body
+          name: uploadRequest
+          description: Metadata of the file to be uploaded
+          required: true
+          schema:
+            type: object
+            required:
+              - filename
+              - filetype
+            properties:
+              filename:
+                type: string
+                example: "my-photo.jpg"
+              filetype:
+                type: string
+                example: "image/jpeg"
+              customLabels:
+                type: string
+                example: "cat, outdoors"
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: object
+            properties:
+              uploadURL:
+                type: string
+                description: The pre-signed URL to PUT the file to
+              filename:
+                type: string
+        '403':
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+definitions:
+  SearchResponse:
+    type: object
+    properties:
+      results:
+        type: array
+        items:
+          $ref: '#/definitions/Photo'
+  Photo:
+    type: object
+    properties:
+      url:
+        type: string
+      labels:
+        type: array
+        items:
+          type: string
+  Error:
+    type: object
+    properties:
+      code:
+        type: integer
+        format: int32
+      message:
+        type: string

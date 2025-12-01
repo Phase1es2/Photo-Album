@@ -1,333 +1,282 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Photo Search - Retro Edition</title>
+    <title>Majin's AI Photo Album</title>
+
+    <script src="apiGateway-js-sdk/lib/axios/dist/axios.standalone.js"></script>
+    <script src="apiGateway-js-sdk/lib/CryptoJS/rollups/crypto-js.js"></script>
+    <script src="apiGateway-js-sdk/lib/CryptoJS/rollups/sha256.js"></script>
+    <script src="apiGateway-js-sdk/lib/CryptoJS/components/enc-base64.js"></script>
+    <script src="apiGateway-js-sdk/lib/CryptoJS/components/hmac.js"></script>
+    <script src="apiGateway-js-sdk/lib/url-template/url-template.js"></script>
+    <script src="apiGateway-js-sdk/lib/apiGatewayCore/utils.js"></script>
+    <script src="apiGateway-js-sdk/lib/apiGatewayCore/sigV4Client.js"></script>
+    <script src="apiGateway-js-sdk/lib/apiGatewayCore/apiGatewayClient.js"></script>
+    <script src="apiGateway-js-sdk/lib/apiGatewayCore/simpleHttpClient.js"></script>
+
+    <script src="apiGateway-js-sdk/apigClient.js"></script>
+
     <style>
-        /* --- 90s Retro Styles --- */
+
         body {
-            background-color: #c0c0c0; /* 经典的 Windows 95/98 灰色 */
-            font-family: "Times New Roman", Times, serif;
+            background-color: #c0c0c0;
+            font-family: "Times New Roman", serif;
             margin: 0;
             padding: 0;
-            color: #000;
         }
 
-        a { color: #0000FF; text-decoration: underline; cursor: pointer; }
-        a:visited { color: #800080; }
-        a:hover { color: #FF0000; }
-
-        .browser-window {
-            background-color: #fff;
+        .window {
             width: 900px;
             margin: 20px auto;
-            border: 2px solid #808080;
-            box-shadow: 5px 5px 0px #404040;
+            background: white;
+            border: 3px solid #808080;
+            box-shadow: 6px 6px 0px #404040;
         }
 
-        /* 顶部导航栏模仿 IE/Yahoo */
         .toolbar {
             background-color: #d4d0c8;
+            padding: 6px;
             border-bottom: 2px solid #808080;
-            padding: 5px;
-            font-family: Arial, sans-serif;
-            font-size: 12px;
             display: flex;
             align-items: center;
         }
 
-        .logo-area {
+        .logo {
             text-align: center;
             padding: 20px 0;
             border-bottom: 1px solid #ccc;
         }
 
         .logo-text {
-            font-size: 48px;
+            font-size: 42px;
             font-weight: bold;
-            font-family: 'Georgia', serif;
-            
-            background: linear-gradient(to right, #39275B 0%, #39275B 40%, #C79900 100%);
-            
+            font-family: Georgia, serif;
+            background: linear-gradient(to right, #39275B, #C79900);
             -webkit-background-clip: text;
-            background-clip: text;
             color: transparent;
-            
-            filter: drop-shadow(2px 2px 0px #C79900);
         }
-        .logo-sub { font-size: 14px; color: #666; }
 
-        /* 主要内容区 */
-        .main-content { padding: 20px; text-align: center; }
+        .content {
+            padding: 20px;
+            text-align: center;
+        }
 
-        /* 输入框和按钮复古风 */
-        input[type="text"], input[type="file"] {
+        input[type="text"],
+        input[type="file"] {
             border: 2px inset #d4d0c8;
             padding: 4px;
-            font-family: Arial, sans-serif;
+            background: white;
         }
 
         button {
-            background-color: #d4d0c8;
             border: 2px outset #fff;
-            border-right-color: #404040;
-            border-bottom-color: #404040;
-            padding: 2px 10px;
-            cursor: pointer;
+            background: #d4d0c8;
             font-weight: bold;
-            font-size: 13px;
+            padding: 4px 12px;
+            cursor: pointer;
+            color: black;
         }
+
         button:active {
             border: 2px inset #fff;
         }
 
-        /* 搜索区域 */
-        .search-box {
-            background-color: #eee;
-            border: 1px solid #999;
-            padding: 15px;
-            width: 60%;
-            margin: 0 auto 20px auto;
+        button:hover {
+            background-color: #e0e0e0;
         }
 
-        /* 上传区域 */
-        .upload-section {
-            margin-top: 30px;
-            border-top: 2px solid #000;
-            padding-top: 10px;
-            background-color: #ffffcc; /* 模仿那个年代的黄色高亮区 */
-            padding: 10px;
-            border: 1px dotted #999;
-            width: 70%;
-            margin: 20px auto;
-        }
-
-        /* 图片结果展示 */
-        .results-area {
+        .results {
+            margin-top: 20px;
             display: flex;
             flex-wrap: wrap;
+            gap: 12px;
             justify-content: center;
-            gap: 15px;
-            margin-top: 20px;
         }
 
         .photo-card {
-            border: 1px solid #000;
-            background: #fff;
-            padding: 5px;
             width: 200px;
-            box-shadow: 3px 3px 0px #ccc;
+            background: white;
+            border: 1px solid #000;
+            padding: 5px;
+            box-shadow: 3px 3px 0px #bbb;
         }
 
         .photo-card img {
             width: 100%;
             height: 150px;
             object-fit: cover;
-            border: 1px solid #999;
+            border: 1px solid #ddd;
         }
 
-        .photo-labels {
+        .photo-card p {
             font-size: 12px;
-            margin-top: 5px;
-            color: #333;
-            font-family: Arial, sans-serif;
+            margin: 5px 0 0;
         }
 
-        /* 工具类 */
-        .divider { border-top: 1px solid #ccc; margin: 10px 0; }
-        .icon { font-size: 20px; vertical-align: middle; margin-right: 5px; }
-        .section-title { font-weight: bold; color: #000080; margin-bottom: 5px; }
+        .upload-box {
+            margin-top: 25px;
+            background: #ffffcc;
+            border: 1px dashed #999;
+            padding: 15px;
+            width: 60%;
+            margin-left: auto;
+            margin-right: auto;
+        }
 
+        #statusMessage {
+            margin-top: 15px;
+            font-size: 14px;
+            font-weight: bold;
+            min-height: 20px;
+        }
     </style>
 </head>
+
 <body>
 
-    <div class="browser-window">
+    <div class="window">
         <div class="toolbar">
-            <span>🏠 Home</span> &nbsp;|&nbsp; 
-            <span>🔍 Search</span> &nbsp;|&nbsp; 
-            <span>📧 Mail</span> &nbsp;|&nbsp; 
+            <span>📁 Home</span>
+            <span style="margin-left: 10px;">🔍 Search</span>
+            <span style="margin-left: auto; font-size: 12px; color: green;">[System Online]</span>
         </div>
 
-        <div class="logo-area">
-            <div class="logo-text">Majin's Photo Album!</div>
+        <div class="logo">
+            <div class="logo-text">Majin's Photo Album</div>
         </div>
 
-        <div class="main-content">
-            
-            <div class="search-box">
-                <div>
-                    <span class="icon">🔍</span>
-                    <input type="text" id="searchInput" placeholder="Search photos (e.g. 'trees', 'birds')..." style="width: 300px;">
-                    <button onclick="searchPhotos()">Search</button>
-                </div>
+        <div class="content">
+
+            <div>
+                <input id="searchInput" type="text" placeholder="Search photos (e.g., cat)" style="width: 300px;">
+                <button onclick="searchPhotos()">Search</button>
             </div>
 
-            <div id="statusMessage" style="color: blue; font-family: Arial; font-size: 12px;"></div>
-            <div id="resultsArea" class="results-area">
-                </div>
+            <div id="statusMessage">Ready.</div>
+            <div id="resultsArea" class="results"></div>
 
-            <br><br>
-            <div class="divider"></div>
+            <hr style="margin-top:30px; border: 1px solid #808080;">
 
-            <div class="upload-section">
-                <div class="section-title">📤 Upload New Photo</div>
-                <div style="font-size: 12px; margin-bottom: 10px;">Select a photo and add custom tags.</div>
-                
-                <table align="center" style="font-size: 13px;">
-                    <tr>
-                        <td align="right"><b>File:</b></td>
-                        <td><input type="file" id="fileInput" accept="image/*"></td>
-                    </tr>
-                    <tr>
-                        <td align="right"><b>Custom Labels:</b></td>
-                        <td>
-                            <input type="text" id="customLabels" placeholder="e.g. Sam, Sally, Vacation" style="width: 200px;">
-                            <br><i style="font-size: 10px; color: #555;">(Comma separated)</i>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td></td>
-                        <td style="padding-top: 10px;">
-                            <button onclick="uploadPhoto()">Upload Photo</button>
-                        </td>
-                    </tr>
-                </table>
+            <div class="upload-box">
+                <b>📤 Upload New Photo</b>
+                <p style="font-size: 11px; margin-top: 5px; color: #555;">(JPG, PNG supported)</p>
+
+                <input type="file" id="fileInput" accept="image/*"><br>
+                <input id="customLabels" type="text" placeholder="Custom labels: Sam, Sally"
+                    style="margin-top: 10px; width: 250px;">
+                <br>
+                <button style="margin-top: 10px;" onclick="uploadPhoto()">Upload to S3</button>
             </div>
 
-            <div style="margin-top: 30px; font-size: 10px; color: #666; border-top: 1px solid #ccc; padding-top: 5px;">
-                Copyright © 1999-2024 AI Photo Search Inc. All rights reserved. <br>
-                <a href="#">Privacy Policy</a> - <a href="#">Terms of Service</a>
-            </div>
+            <div style="margin-top: 20px; font-size: 10px; color: #666;">© 1999-2025 Majin Inc.</div>
         </div>
     </div>
 
     <script>
-        // ================= 配置区域 =================
-        // 请在此处替换为你的 API Gateway Invoke URL
-        // 例如: https://abc12345.execute-api.us-east-1.amazonaws.com/v1
-        const API_ENDPOINT = 'YOUR_API_GATEWAY_URL_HERE'; 
-        // ===========================================
+        function searchPhotos() {
+            const query = document.getElementById("searchInput").value.trim();
+            const status = document.getElementById("statusMessage");
 
-        // 1. 搜索功能 (GET /search)
-        async function searchPhotos() {
-            const query = document.getElementById('searchInput').value;
-            const resultsDiv = document.getElementById('resultsArea');
-            const statusMsg = document.getElementById('statusMessage');
+            status.innerText = "Searching...";
 
-            if (!query) {
-                alert("Please enter a search term!");
-                return;
-            }
+            const apigClient = apigClientFactory.newClient({});
 
-            resultsDiv.innerHTML = '';
-            statusMsg.textContent = "Searching the web for photos...";
+            const params = { q: query };
+            const body = {};
+            const additionalParams = {};
 
-            try {
-                // 调用 API Gateway
-                const response = await fetch(`${API_ENDPOINT}/search?q=${encodeURIComponent(query)}`, {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json'
-                    }
+            apigClient.searchGet(params, body, additionalParams)
+                .then(function (response) {
+                    console.log("Search Response:", response);
+                    status.innerText = "Search complete.";
+                    const results = response.data.results ? response.data.results.map(item => item.url) : [];
+                    displayImages(results);
+                })
+                .catch(function (error) {
+                    console.error("Search Error:", error);
+                    status.innerText = "Search failed! Check console.";
                 });
-
-                if (!response.ok) throw new Error("Search failed");
-
-                const data = await response.json();
-                
-                // 根据 Swagger 定义: data.results 是一个数组
-                const results = data.results || []; 
-
-                statusMsg.textContent = `Found ${results.length} results for "${query}".`;
-
-                if (results.length === 0) {
-                    resultsDiv.innerHTML = '<div style="font-family:Arial; color:red;">No results found. Try searching for "trees" or "cats".</div>';
-                    return;
-                }
-
-                // 渲染图片
-                results.forEach(photo => {
-                    const card = document.createElement('div');
-                    card.className = 'photo-card';
-                    
-                    // 防止 labels 为空
-                    const labelsText = photo.labels ? photo.labels.join(', ') : '';
-
-                    card.innerHTML = `
-                        <a href="${photo.url}" target="_blank">
-                            <img src="${photo.url}" alt="Photo">
-                        </a>
-                        <div class="photo-labels"><b>Tags:</b> ${labelsText}</div>
-                    `;
-                    resultsDiv.appendChild(card);
-                });
-
-            } catch (error) {
-                console.error(error);
-                statusMsg.textContent = "Error: Could not connect to search server.";
-            }
         }
+        function uploadPhoto() {
+            const fileInput = document.getElementById("fileInput");
+            const labelsInput = document.getElementById("customLabels");
+            const status = document.getElementById("statusMessage");
 
-        // 2. 上传功能 (PUT /upload)
-        async function uploadPhoto() {
-            const fileInput = document.getElementById('fileInput');
-            const labelInput = document.getElementById('customLabels');
             const file = fileInput.files[0];
-            const statusMsg = document.getElementById('statusMessage');
 
-            if (!file) {
-                alert("Please select a file first!");
+            let customLabels = labelsInput.value.trim();
+            if (!customLabels) customLabels = "";
+
+            const apiGatewayUrl = "https://d52ne38ocf.execute-api.us-east-1.amazonaws.com/k1/get-upload-url";
+
+            status.innerText = "Step 1: Requesting upload permission...";
+
+  
+            axios.post(apiGatewayUrl, {
+                filename: file.name,
+                filetype: file.type,
+                customLabels: customLabels 
+            })
+                .then(function (response) {
+                    const uploadURL = response.data.uploadURL;
+                    status.innerText = "Step 2: Uploading with tags...";
+
+
+                    return axios.put(uploadURL, file, {
+                        headers: {
+                            'Content-Type': file.type,
+                            'x-amz-meta-customLabels': customLabels 
+                        }
+                    });
+                })
+                .then(function (result) {
+                    console.log("Success:", result);
+                    status.innerText = "Upload successful!";
+                })
+                .catch(function (error) {
+                    console.error("Error:", error);
+                    status.innerText = "Upload failed.";
+                });
+        }
+        /**
+         * Logic: Display Images
+         * Renders the image results into the resultsArea div using the photo-card style
+         */
+        function displayImages(images) {
+            const resultsDiv = document.getElementById("resultsArea");
+            resultsDiv.innerHTML = ""; // Clear previous results
+
+            if (!images || images.length === 0) {
+                resultsDiv.innerHTML = "<p>No images found matching that query.</p>";
                 return;
             }
 
-            // 获取自定义标签并处理 (例如 "Sam, Sally" -> 这是一个字符串，直接放入 Header)
-            const customLabels = labelInput.value.trim();
+            images.forEach(imageUrl => {
+                // Create the container matching your CSS
+                const card = document.createElement("div");
+                card.className = "photo-card";
 
-            statusMsg.textContent = "Uploading image to S3 bucket...";
+                // Create the image element
+                const img = document.createElement("img");
+                img.src = imageUrl;
+                img.alt = "Search Result";
 
-            try {
-                // 注意: API Gateway S3 Proxy 通常需要文件名作为路径参数
-                // 假设路径配置为 /upload/{filename} 或者直接 /upload 但 body 是 binary
-                // 根据课程常见配置，我们通常把文件名拼在 URL 后面
-                // 如果你的 API Gateway 是 /upload，请确认是否支持 PUT binary
-                
-                const filename = file.name;
-                
-                // 构造 Headers
-                const headers = {
-                    'Content-Type': file.type || 'image/jpeg',
-                };
+                // Optional: Add a caption (if backend returns metadata, you can use it here)
+                const caption = document.createElement("p");
+                caption.innerText = "Match"; // Placeholder text
 
-                // ★★★ 关键点: 添加自定义 Metadata Header ★★★
-                if (customLabels) {
-                    // Swagger 要求: x-amz-meta-customLabels
-                    headers['x-amz-meta-customLabels'] = customLabels;
-                }
-
-                const response = await fetch(`${API_ENDPOINT}/upload/${filename}`, {
-                    method: 'PUT',
-                    headers: headers,
-                    body: file // 直接发送二进制文件
-                });
-
-                if (response.ok) {
-                    statusMsg.textContent = "Upload Successful! You can search for it now.";
-                    alert("Upload Successful!");
-                    // 清空输入
-                    fileInput.value = '';
-                    labelInput.value = '';
-                } else {
-                    throw new Error("Upload failed with status: " + response.status);
-                }
-
-            } catch (error) {
-                console.error(error);
-                statusMsg.textContent = "Error during upload.";
-                alert("Upload failed. Check console for details.");
-            }
+                // Assemble
+                card.appendChild(img);
+                card.appendChild(caption);
+                resultsDiv.appendChild(card);
+            });
         }
+
     </script>
+
 </body>
+
 </html>
