@@ -2,21 +2,14 @@ import json
 import boto3
 from opensearchpy import OpenSearch, RequestsHttpConnection, AWSV4SignerAuth
 
-
-# Lex-Bot
-lex_bot = boto3.client('lexv2-runtime')
-BOT_ID = 'HQYG2VEI9R'
-BOT_ALIAS_ID = 'TSTALIASID'
-LOCALE_ID = 'en_US'
-
-
-# Elastic Search
 region = 'us-east-1'
-host = 'search-photos-tdaddyd45xyfcfqmv4lm24uc3u.aos.us-east-1.on.aws'
+
+host = 'search-photos-tdaddyd45xyfcfqmv4lm24uc3u.aos.us-east-1.on.aws' 
 
 session = boto3.Session()
 credentials = session.get_credentials()
 auth = AWSV4SignerAuth(credentials, region)
+
 
 opensearch_client = OpenSearch(
     hosts=[{'host': host, 'port': 443}],
@@ -26,51 +19,58 @@ opensearch_client = OpenSearch(
     connection_class=RequestsHttpConnection,
 )
 
+
+s3_client = boto3.client('s3') 
+
+
 def query_opensearch(query):
+
+    print("Executing OpenSearch Query:", json.dumps(query)) 
+    
     try:
         response = opensearch_client.search(index='photos', body=query)
+        
+
+        print("OpenSearch Response (Success):", json.dumps(response)) 
+        
+
+        total_hits = response.get('hits', {}).get('total', {}).get('value', 0)
+        print(f"Total photos found in OpenSearch: {total_hits}")
+
         return response['hits']['hits']
     except Exception as e:
-        print(f"OpenSearch Error: {e}")
+        print(f"FATAL OpenSearch Connection/Search Error: {e}")
         return []
 
-
-def get_slots(intent_request):
-    return intent_request['sessionState']['intent']['slots']
-
-def get_keyword():
-    q_slot = slots.get('q')
-    keywords = []
-    if q_slot:
-        if 'values' in q_slot:
-            for item in q_slot['values']:
-                val = item['value'].get('interpretedValue') or item['value'].get('originalValue')
-                keywords.append(val)
-        elif 'value' in q_slot:
-            val = q_slot['value'].get('interpretedValue') or q_slot['value'].get('originalValue')
-            keywords.append(val)
-    return keywords
 
 def lambda_handler(event, context):
     print("Event:", json.dumps(event))
 
-    slots = get_slots(event)
-    q_slot = slots.get('q')
+    try:
+        query_params = event.get('queryStringParameters', {})
+        keywords_str = query_params.get('q')
+    except Exception:
+        return {
+            'statusCode': 400,
+            'body': json.dumps({'error': 'Missing query parameter "q".'})
+        }
+
+
+    if not keywords_str:
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({'results': [], 'count': 0})
+        }
     
-    keywords = get_keyword(slots)
 
+    keywords = [keywords_str.lower()]
     print("Extracted Keywords:", keywords) 
+    
 
-    if not keywords:
-        return close(event, "Fulfilled", "I didn't understand what you want to search.")
-
-    must_clauses = []
-    for kw in keywords:
-        must_clauses.append({
-            "match": {
-                "labels": kw
-            }
-        })
+    must_clauses = [{"match": {"labels": kw}} for kw in keywords]
 
     query = {
         "size": 20,
@@ -81,29 +81,40 @@ def lambda_handler(event, context):
         }
     }
 
-
     results = query_opensearch(query)
-    count = len(results)
+    
+    photo_urls = []
+    for hit in results:
+        source = hit.get('_source', {})
+        bucket_name = source.get('bucket')
+        
+        object_key = source.get('objectKey') 
 
+        if bucket_name and object_key:
+            try:
+                presigned_url = s3_client.generate_presigned_url(
+                    ClientMethod='get_object',
+                    Params={
+                        'Bucket': bucket_name,
+                        'Key': object_key
+                    },
+                    ExpiresIn=3600
+                )
+                
+                photo_urls.append({
+                    'url': presigned_url,
+                    'key': object_key 
+                })
+            except Exception as e:
+                print(f"Error generating presigned URL for {object_key} in {bucket_name}: {e}")
 
-    return close(event, "Fulfilled", f"I found {count} photos that match all your keywords: {', '.join(keywords)}.")
-
-
-def close(event, fulfillment_state, message_content):
     return {
-        "sessionState": {
-            "dialogAction": {
-                "type": "Close"
-            },
-            "intent": {
-                "name": event['sessionState']['intent']['name'],
-                "state": fulfillment_state
-            }
+        'statusCode': 200,
+        'headers': {
+            'Access-Control-Allow-Origin': '*'  
         },
-        "messages": [
-            {
-                "contentType": "PlainText",
-                "content": message_content
-            }
-        ]
+        'body': json.dumps({
+            'results': photo_urls,
+            'count': len(photo_urls)
+        })
     }
