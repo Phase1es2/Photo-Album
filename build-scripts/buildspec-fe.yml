@@ -13,6 +13,6 @@ phases:
     commands:
       - echo "Syncing Frontend folder to S3..."
       
-      - aws s3 sync Frontend/ s3://majin-photo-storage-fe --delete
+      - aws s3 sync PA-FE/ s3://majin-photo-storage-fe --delete
       
       - echo "Frontend deployment complete!"
