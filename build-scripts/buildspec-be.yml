@@ -1,0 +1,40 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.12
+    commands:
+      - mkdir build_index
+      - mkdir build_search
+      - mkdir build_put
+
+      - cp Lambda/index-photos.py build_index/lambda_function.py
+      - cp Lambda/search-photos.py build_search/lambda_function.py
+      - cp Lambda/put-s3.py build_put/lambda_function.py
+
+  build:
+    commands:
+      - echo "Zipping only the code..."
+      
+      - cd build_index
+      - zip -r ../index-package.zip .
+      - cd ..
+      
+      - cd build_search
+      - zip -r ../search-package.zip .
+      - cd ..
+      
+      - cd build_put
+      - zip -r ../put-package.zip .
+      - cd ..
+
+  post_build:
+    commands:
+      - echo "Deploying to Lambda..."
+      
+      - aws lambda update-function-code --function-name index-photos --zip-file fileb://index-package.zip
+      - aws lambda update-function-code --function-name search-photos --zip-file fileb://search-package.zip
+      - aws lambda update-function-code --function-name put-s3 --zip-file fileb://put-package.zip
+
+      - echo "Done!"
