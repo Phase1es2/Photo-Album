@@ -1,0 +1,153 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Final fixed CloudFormation for a serverless photo application with three Lambdas, a Layer, and two S3 Buckets, including all necessary S3 permissions."
+
+Parameters:
+  CodeBucketName:
+    Type: String
+    Description: "The name of the S3 bucket where Lambda code ZIP files are stored (e.g., index-photos.py.zip)."
+    Default: "temp-lambda-majin" 
+
+Resources:
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: PhotoAppS3AccessPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: 
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                Resource: 
+                  - !Sub "arn:aws:s3:::${PhotoStorageBucket}"
+                  - !Sub "arn:aws:s3:::${PhotoStorageBucket}/*"
+              
+                  - !Sub "arn:aws:s3:::${FrontendHostingBucket}"
+                  - !Sub "arn:aws:s3:::${FrontendHostingBucket}/*"
+
+
+  LambdaDependenciesLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: "PhotoApp-DependenciesLayer"
+      Description: "Shared dependencies for photo application lambdas"
+      Content:
+        S3Bucket: !Ref CodeBucketName
+        S3Key: "lambda_layer.zip"
+      CompatibleRuntimes:
+        - python3.9
+        
+  
+  IndexPhotosFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: "PhotoApp-IndexPhotos"
+      Runtime: python3.9
+      Handler: index-photos.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref CodeBucketName
+        S3Key: "index-photos.py.zip"
+      Layers:
+        - !Ref LambdaDependenciesLayer
+
+  PutS3Function:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: "PhotoApp-PutS3"
+      Runtime: python3.9
+      Handler: put-s3.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref CodeBucketName
+        S3Key: "put-s3.py.zip"
+      Layers:
+        - !Ref LambdaDependenciesLayer
+      
+  SearchPhotosFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: "PhotoApp-SearchPhotos"
+      Runtime: python3.9
+      Handler: search-photos.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref CodeBucketName
+        S3Key: "search-photos.py.zip"
+      Layers:
+        - !Ref LambdaDependenciesLayer
+
+  PhotoStorageBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "photo-storage-bucket-${AWS::AccountId}-${AWS::Region}"
+      OwnershipControls: 
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      
+  FrontendHostingBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "frontend-hosting-bucket-${AWS::AccountId}-${AWS::Region}"
+
+      OwnershipControls: 
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced 
+          
+
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: false
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: false
+      
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+      
+
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendHostingBucket
+      PolicyDocument:
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: "*"
+            Action:
+              - s3:GetObject
+            Resource: !Sub "arn:aws:s3:::${FrontendHostingBucket}/*"
+
+Outputs:
+  PhotoStorageBucketName:
+    Description: "The S3 Bucket where photos are stored."
+    Value: !Ref PhotoStorageBucket
+    
+  FrontendBucketURL:
+    Description: "The URL for the static website hosting (frontend)."
+    Value: !GetAtt FrontendHostingBucket.WebsiteURL
+    
+  SearchPhotosFunctionName:
+    Description: "The name of the SearchPhotos Lambda Function."
+    Value: !Ref SearchPhotosFunction
